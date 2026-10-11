@@ -1,189 +1,83 @@
-import { ScrollView, Text, View, Linking, Pressable } from "react-native";
+import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import {
-  MapPin,
-  ChevronRight,
-  Thermometer,
-  Droplet,
-  Wind,
-  CloudRainWind,
-  CircleGauge,
-  CloudSun,
-  Cloud,
-  Sun,
   AlertTriangle,
+  ChevronRight,
+  CircleGauge,
+  Cloud,
+  CloudRainWind,
+  Droplet,
+  MapPin,
+  Sun,
+  Thermometer,
+  Wind,
 } from "lucide-react-native";
+
+import { HORIZONS, type Num } from "@/api/types";
+import { useForecast, useLatestReading } from "@/hooks/use-hula-data";
 
 function OpenMapButton() {
   const openMap = () => {
     const location = "Santisimo Rosario, San Pablo City, Laguna";
-
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
-
     Linking.openURL(url);
   };
 
   return (
-    <Pressable onPress={openMap}>
+    <Pressable
+      onPress={openMap}
+      accessibilityRole="button"
+      accessibilityLabel="Open monitoring location in Google Maps"
+    >
       <ChevronRight size={35} color="#E2D7AB" />
     </Pressable>
   );
 }
 
-type WeatherData = {
-  temperature: number | null;
-  humidity: number | null;
-  windSpeed: number | null;
-  rainfall: number | null;
-  rainfallIntervalMinutes: number;
-  pressure: number | null;
-  recordedAt: string | null;
+function display(value: Num | undefined, digits: number, unit: string) {
+  return value == null ? "—" : `${value.toFixed(digits)}${unit}`;
+}
 
-  previousHour: {
-    temperature: number | null;
-    humidity: number | null;
-    windSpeed: number | null;
-    pressure: number | null;
-  };
-};
-
-const sampleWeather: WeatherData = {
-  temperature: 28.4,
-  humidity: 82,
-  windSpeed: 3.2,
-  rainfall: 0,
-  rainfallIntervalMinutes: 10,
-  pressure: 1008,
-  recordedAt: "2026-10-11T09:40:00+08:00",
-
-  previousHour: {
-    temperature: 28.1,
-    humidity: 80,
-    windSpeed: 3.2,
-    pressure: 1007,
-  },
-};
-
-type FieldCondition = {
-  condition: string;
-  description: string;
-  lightIntensity: number | null;
-};
-
-type RainfallForecast = {
-  hoursAhead: number;
-  rainProbability: number;
-  expectedRainfall: number;
-};
-
-type FarmerAdvisory = {
-  level: "low" | "moderate" | "high";
-  title: string;
-  message: string;
-};
-
-const sampleFieldCondition: FieldCondition = {
-  condition: "Partly Cloudy",
-  description: "Some cloud cover with periods of sunlight.",
-  lightIntensity: 18500,
-};
-
-const sampleForecasts: RainfallForecast[] = [
-  {
-    hoursAhead: 1,
-    rainProbability: 20,
-    expectedRainfall: 0.0,
-  },
-  {
-    hoursAhead: 3,
-    rainProbability: 65,
-    expectedRainfall: 2.4,
-  },
-  {
-    hoursAhead: 6,
-    rainProbability: 80,
-    expectedRainfall: 5.2,
-  },
-];
-
-const sampleAdvisory: FarmerAdvisory = {
-  level: "moderate",
-  title: "Rainfall Expected",
-  message:
-    "Rainfall may occur within the next 3 hours. Consider postponing pesticide application and monitor field conditions.",
-};
-
-function getTrend(
-  current: number | null,
-  previous: number | null,
-  unit: string,
-) {
-  if (current === null || previous === null) {
-    return {
-      arrow: "—",
-      text: "No trend data",
-      color: "text-gray-400",
-    };
+function getTrend(change: Num | undefined, unit: string) {
+  if (change == null) {
+    return { arrow: "—", text: "No trend data", color: "text-gray-400" };
   }
-
-  const difference = current - previous;
-
-  if (Math.abs(difference) < 0.05) {
-    return {
-      arrow: "→",
-      text: `0.0 ${unit} (1h)`,
-      color: "text-gray-500",
-    };
+  if (Math.abs(change) < 0.05) {
+    return { arrow: "→", text: `0.0 ${unit} (1h)`, color: "text-gray-500" };
   }
-
   return {
-    arrow: difference > 0 ? "↑" : "↓",
-    text: `${Math.abs(difference).toFixed(1)} ${unit} (1h)`,
-    color: difference > 0 ? "text-orange-600" : "text-blue-600",
+    arrow: change > 0 ? "↑" : "↓",
+    text: `${Math.abs(change).toFixed(1)} ${unit} (1h)`,
+    color: change > 0 ? "text-orange-600" : "text-blue-600",
   };
 }
 
 export default function HomeScreen() {
-  const weather = sampleWeather;
-  const fieldCondition = sampleFieldCondition;
-  const forecasts = sampleForecasts;
-  const advisory = sampleAdvisory;
-  const now = new Date();
+  const latest = useLatestReading();
+  const forecast = useForecast();
+  const weather = latest.data;
+  const forecastData = forecast.data;
 
-  const date = now.toLocaleDateString("en-PH", {
+  const timestamp = weather?.recordedAt ? new Date(weather.recordedAt) : null;
+  const validTimestamp =
+    timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp : null;
+  const date = validTimestamp?.toLocaleDateString("en-PH", {
     month: "short",
     day: "numeric",
     year: "numeric",
   });
-
-  const time = now.toLocaleTimeString("en-PH", {
+  const time = validTimestamp?.toLocaleTimeString("en-PH", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
 
-  const temperatureTrend = getTrend(
-    weather.temperature,
-    weather.previousHour.temperature,
-    "°C",
-  );
+  const temperatureTrend = getTrend(weather?.change.temperature, "°C");
+  const humidityTrend = getTrend(weather?.change.humidity, "%");
+  const windSpeedTrend = getTrend(weather?.change.windSpeed, "m/s");
+  const pressureTrend = getTrend(weather?.change.pressure, "hPa");
 
-  const humidityTrend = getTrend(
-    weather.humidity,
-    weather.previousHour.humidity,
-    "%",
-  );
-
-  const windSpeedTrend = getTrend(
-    weather.windSpeed,
-    weather.previousHour.windSpeed,
-    "m/s",
-  );
-
-  const pressureTrend = getTrend(
-    weather.pressure,
-    weather.previousHour.pressure,
-    "hPa",
-  );
+  const condition = forecastData?.condition;
+  const advisory = forecastData?.advisory;
 
   return (
     <View className="flex-1 bg-hula-cream">
@@ -192,43 +86,40 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
       >
         <View className="px-4 pt-4 pb-8">
-          <Text className="text-5xl font-bold text-hula-green">HULA</Text>
-          <Text className="text-xs font-bold text-hula-green">
+          <Text className="text-5xl text-hula-green font-nunito-bold">
+            HULA
+          </Text>
+          <Text className="text-xs text-hula-green font-nunito-bold">
             Hatid na Ulat sa Lagay ng Agrikultura
           </Text>
         </View>
 
         <View className="flex-row mx-4 rounded-2xl bg-hula-green p-4 px-4 gap-2">
-          <View className="flex justify-center align-center">
+          <View className="justify-center">
             <MapPin size={35} color="#E2D7AB" />
           </View>
-
-          <View>
-            <Text className="text-xs font-bold text-hula-beige">
+          <View className="flex-1">
+            <Text className="text-xs text-hula-beige font-nunito-bold">
               MONITORING LOCATION
             </Text>
-
-            <Text className="mt-1 text-lg font-bold text-white">
+            <Text className="mt-1 text-lg text-white font-nunito-bold">
               Barangay Santisimo Rosario
             </Text>
-
-            <Text className="text-sm text-hula-cream">
+            <Text className="text-sm text-hula-cream font-nunito">
               San Pablo City, Laguna
             </Text>
           </View>
-
-          <View className="ml-auto justify-center">
+          <View className="justify-center">
             <OpenMapButton />
           </View>
         </View>
 
         <View className="w-full px-4 mt-4 flex-row items-center">
-          <Text className="text-lg font-bold text-hula-green">
+          <Text className="text-lg text-hula-green font-nunito-bold">
             Current Conditions
           </Text>
-
-          <Text className="ml-auto text-right text-xs text-hula-green">
-            {date} · {time}
+          <Text className="ml-auto text-right text-xs text-hula-green font-nunito">
+            {validTimestamp ? `${date} · ${time}` : "No reading yet"}
           </Text>
         </View>
 
@@ -237,15 +128,20 @@ export default function HomeScreen() {
             <View className="justify-center">
               <Thermometer size={40} color="#c43a2d" />
             </View>
-            <View className="gap-2">
-              <Text className="text-xs text-hula-green">Temperature</Text>
-              <Text className="text-2xl font-bold text-hula-green">
-                {weather.temperature !== null
-                  ? `${weather.temperature.toFixed(1)}°C`
-                  : "--"}
+            <View className="flex-1 gap-2">
+              <Text className="text-xs text-hula-green font-nunito">
+                Temperature
               </Text>
-
-              <Text className={`text-xs font-medium ${temperatureTrend.color}`}>
+              <Text
+                className="text-2xl font-nunito-bold"
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {display(weather?.temperature, 1, "°C")}
+              </Text>
+              <Text
+                className={`text-xs font-nunito-medium ${temperatureTrend.color}`}
+              >
                 {temperatureTrend.arrow} {temperatureTrend.text}
               </Text>
             </View>
@@ -255,15 +151,20 @@ export default function HomeScreen() {
             <View className="justify-center">
               <Droplet size={40} color="#2d8fc4" />
             </View>
-            <View className="gap-2">
-              <Text className="text-xs text-hula-green">Humidity</Text>
-              <Text className="text-2xl font-bold text-hula-green">
-                {weather.humidity !== null
-                  ? `${weather.humidity.toFixed(1)}%`
-                  : "--"}
+            <View className="flex-1 gap-2">
+              <Text className="text-xs text-hula-green font-nunito">
+                Humidity
               </Text>
-
-              <Text className={`text-xs font-medium ${humidityTrend.color}`}>
+              <Text
+                className="text-2xl font-nunito-bold"
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {display(weather?.humidity, 1, "%")}
+              </Text>
+              <Text
+                className={`text-xs font-nunito-medium ${humidityTrend.color}`}
+              >
                 {humidityTrend.arrow} {humidityTrend.text}
               </Text>
             </View>
@@ -273,15 +174,20 @@ export default function HomeScreen() {
             <View className="justify-center">
               <Wind size={40} color="#3ac42d" />
             </View>
-            <View className="gap-2">
-              <Text className="text-xs text-hula-green">Wind Speed</Text>
-              <Text className="text-2xl font-bold text-hula-green">
-                {weather.windSpeed !== null
-                  ? `${weather.windSpeed.toFixed(1)} m/s`
-                  : "--"}
+            <View className="flex-1 gap-2">
+              <Text className="text-xs text-hula-green font-nunito">
+                Wind Speed
               </Text>
-
-              <Text className={`text-xs font-medium ${windSpeedTrend.color}`}>
+              <Text
+                className="text-2xl font-nunito-bold"
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {display(weather?.windSpeed, 1, " m/s")}
+              </Text>
+              <Text
+                className={`text-xs font-nunito-medium ${windSpeedTrend.color}`}
+              >
                 {windSpeedTrend.arrow} {windSpeedTrend.text}
               </Text>
             </View>
@@ -291,37 +197,37 @@ export default function HomeScreen() {
             <View className="justify-center">
               <CloudRainWind size={40} color="#18597c" />
             </View>
-            <View className="gap-2">
-              <Text className="text-xs text-hula-green">Rainfall</Text>
-              <Text className="text-2xl font-bold text-hula-green">
-                {weather.rainfall !== null
-                  ? `${weather.rainfall.toFixed(1)} mm`
-                  : "--"}
+            <View className="flex-1 gap-2">
+              <Text className="text-xs text-hula-green font-nunito">
+                Rainfall
               </Text>
-
-              <Text className="text-xs font-medium">
-                Last {weather.rainfallIntervalMinutes} min
+              <Text
+                className="text-2xl font-nunito-bold"
+                adjustsFontSizeToFit
+                numberOfLines={1}
+              >
+                {display(weather?.rainfall, 1, " mm")}
+              </Text>
+              <Text className="text-xs text-hula-green font-nunito-medium">
+                Latest interval
               </Text>
             </View>
           </View>
 
           <View className="w-full flex-row rounded-2xl p-4 bg-[#e1e8c9] px-4 gap-4">
-            <View className="flex justify-center align-center">
+            <View className="justify-center">
               <CircleGauge size={35} color="#135a28" />
             </View>
-
-            <View>
-              <Text className="text-xs font-bold text-hula-green">
+            <View className="flex-1">
+              <Text className="text-xs text-hula-green font-nunito-bold">
                 Atmospheric Pressure
               </Text>
-
-              <Text className="text-2xl font-bold text-hula-green">
-                {weather.pressure !== null
-                  ? `${weather.pressure.toFixed(1)} hPa`
-                  : "--"}
+              <Text className="text-2xl text-hula-green font-nunito-bold">
+                {display(weather?.pressure, 1, " hPa")}
               </Text>
-
-              <Text className={`text-xs font-medium ${pressureTrend.color}`}>
+              <Text
+                className={`text-xs font-nunito-medium ${pressureTrend.color}`}
+              >
                 {pressureTrend.arrow} {pressureTrend.text}
               </Text>
             </View>
@@ -332,7 +238,6 @@ export default function HomeScreen() {
               <View className="absolute left-5 top-0">
                 <Sun size={35} color="#FACC15" strokeWidth={2.5} />
               </View>
-
               <View className="absolute bottom-0 left-0">
                 <Cloud
                   size={45}
@@ -342,83 +247,71 @@ export default function HomeScreen() {
                 />
               </View>
             </View>
-
-            <View className="flex-1 gap-1 ">
-              <Text className="text-xs font-bold text-hula-green">
-                OVERALL FIELD CONDITION
+            <View className="flex-1 gap-1">
+              <Text className="text-xs text-hula-green font-nunito-bold">
+                Overall Field Conditions
               </Text>
-
-              <Text className="text-xl font-bold text-hula-green">
-                {fieldCondition.condition}
+              <Text className="text-xl text-hula-green font-nunito-bold">
+                {condition?.title ?? "Unavailable"}
               </Text>
-
-              <Text className="text-sm text-hula-green">
-                {fieldCondition.description}
+              <Text className="text-sm text-hula-green font-nunito">
+                {condition?.note ?? "No field condition data available."}
               </Text>
-
-              <Text className="mt-1 text-xs text-hula-green">
-                Light:{" "}
-                {fieldCondition.lightIntensity !== null
-                  ? `${fieldCondition.lightIntensity.toLocaleString()} lux`
-                  : "--"}
+              <Text className="mt-1 text-xs text-hula-green font-nunito">
+                Light: —
               </Text>
             </View>
           </View>
 
           <View className="w-full gap-3">
-            <Text className="text-lg font-bold text-hula-green">
+            <Text className="text-lg text-hula-green font-nunito-bold">
               Next Rainfall Forecast
             </Text>
-
             <View className="flex-row justify-between gap-2">
-              {forecasts.map((forecast) => (
-                <View
-                  key={forecast.hoursAhead}
-                  className="flex-1 items-center gap-2 rounded-xl bg-white p-3"
-                >
-                  <Text className="text-sm font-bold text-hula-green">
-                    Next {forecast.hoursAhead}h
-                  </Text>
-
-                  <CloudRainWind size={28} color="#18597c" />
-
-                  <Text className="text-xl font-bold text-hula-green">
-                    {forecast.rainProbability}%
-                  </Text>
-
-                  <Text className="text-center text-xs text-gray-500">
-                    Rain chance
-                  </Text>
-
-                  <Text className="text-xs font-medium text-hula-green">
-                    {forecast.expectedRainfall.toFixed(1)} mm
-                  </Text>
-                </View>
-              ))}
+              {HORIZONS.map((hours) => {
+                const point = forecastData?.points.find(
+                  (p) => p.hours === hours,
+                );
+                return (
+                  <View
+                    key={hours}
+                    className="flex-1 items-center gap-2 rounded-xl bg-white p-3"
+                  >
+                    <Text className="text-sm text-hula-green font-nunito-bold">
+                      Next {hours}h
+                    </Text>
+                    <CloudRainWind size={28} color="#18597c" />
+                    <Text className="text-xl text-hula-green font-nunito-bold">
+                      {point?.rainChance == null
+                        ? "—"
+                        : `${Math.round(point.rainChance)}%`}
+                    </Text>
+                    <Text className="text-center text-xs text-gray-500 font-nunito">
+                      Rain chance
+                    </Text>
+                    <Text className="text-xs text-hula-green font-nunito-medium">
+                      {display(point?.rainfall, 1, " mm")}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
 
           <View className="w-full gap-3">
-            <Text className="text-lg font-bold text-hula-green">
+            <Text className="text-lg text-hula-green font-nunito-bold">
               Farmer Advisory
             </Text>
-
-            <View className="flex-row gap-3 rounded-2xl bg-[#EBE3C1] p-4 gap-4">
-              <View className="flex justify-center align-center">
+            <View className="w-full flex-row gap-4 rounded-2xl bg-[#EBE3C1] p-4">
+              <View className="justify-center">
                 <AlertTriangle size={35} color="#73511d" />
               </View>
-
               <View className="flex-1 gap-2">
-                <Text className="text-base font-bold text-[#875514]">
-                  {advisory.title}
+                <Text className="text-base text-[#875514] font-nunito-bold">
+                  Farmer Advisory
                 </Text>
-
-                <Text className="text-sm leading-5 text-[#875514]">
-                  {advisory.message}
-                </Text>
-
-                <Text className="text-xs font-medium text-[#B7791F]">
-                  {advisory.level.toUpperCase()} ADVISORY
+                <Text className="text-sm leading-5 text-[#875514] font-nunito">
+                  {advisory ?? "No advisory available."}
                 </Text>
               </View>
             </View>

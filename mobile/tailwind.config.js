@@ -18,4 +18,10 @@ module.exports = {
     },
   },
   plugins: [],
+  fontFamily: {
+  nunito: ["NunitoSansRegular"],
+  "nunito-medium": ["NunitoSansMedium"],
+  "nunito-semibold": ["NunitoSansSemiBold"],
+  "nunito-bold": ["NunitoSansBold"],
+},
 };
