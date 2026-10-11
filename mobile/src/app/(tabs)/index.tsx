@@ -6,6 +6,11 @@ import {
   Droplet,
   Wind,
   CloudRainWind,
+  CircleGauge,
+  CloudSun,
+  Cloud,
+  Sun,
+  AlertTriangle,
 } from "lucide-react-native";
 
 function OpenMapButton() {
@@ -58,6 +63,55 @@ const sampleWeather: WeatherData = {
   },
 };
 
+type FieldCondition = {
+  condition: string;
+  description: string;
+  lightIntensity: number | null;
+};
+
+type RainfallForecast = {
+  hoursAhead: number;
+  rainProbability: number;
+  expectedRainfall: number;
+};
+
+type FarmerAdvisory = {
+  level: "low" | "moderate" | "high";
+  title: string;
+  message: string;
+};
+
+const sampleFieldCondition: FieldCondition = {
+  condition: "Partly Cloudy",
+  description: "Some cloud cover with periods of sunlight.",
+  lightIntensity: 18500,
+};
+
+const sampleForecasts: RainfallForecast[] = [
+  {
+    hoursAhead: 1,
+    rainProbability: 20,
+    expectedRainfall: 0.0,
+  },
+  {
+    hoursAhead: 3,
+    rainProbability: 65,
+    expectedRainfall: 2.4,
+  },
+  {
+    hoursAhead: 6,
+    rainProbability: 80,
+    expectedRainfall: 5.2,
+  },
+];
+
+const sampleAdvisory: FarmerAdvisory = {
+  level: "moderate",
+  title: "Rainfall Expected",
+  message:
+    "Rainfall may occur within the next 3 hours. Consider postponing pesticide application and monitor field conditions.",
+};
+
 function getTrend(
   current: number | null,
   previous: number | null,
@@ -90,6 +144,9 @@ function getTrend(
 
 export default function HomeScreen() {
   const weather = sampleWeather;
+  const fieldCondition = sampleFieldCondition;
+  const forecasts = sampleForecasts;
+  const advisory = sampleAdvisory;
   const now = new Date();
 
   const date = now.toLocaleDateString("en-PH", {
@@ -122,9 +179,18 @@ export default function HomeScreen() {
     "m/s",
   );
 
+  const pressureTrend = getTrend(
+    weather.pressure,
+    weather.previousHour.pressure,
+    "hPa",
+  );
+
   return (
     <View className="flex-1 bg-hula-cream">
-      <ScrollView className="flex-1">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 24 }}
+      >
         <View className="px-4 pt-4 pb-8">
           <Text className="text-5xl font-bold text-hula-green">HULA</Text>
           <Text className="text-xs font-bold text-hula-green">
@@ -236,6 +302,125 @@ export default function HomeScreen() {
               <Text className="text-xs font-medium">
                 Last {weather.rainfallIntervalMinutes} min
               </Text>
+            </View>
+          </View>
+
+          <View className="w-full flex-row rounded-2xl p-4 bg-[#e1e8c9] px-4 gap-4">
+            <View className="flex justify-center align-center">
+              <CircleGauge size={35} color="#135a28" />
+            </View>
+
+            <View>
+              <Text className="text-xs font-bold text-hula-green">
+                Atmospheric Pressure
+              </Text>
+
+              <Text className="text-2xl font-bold text-hula-green">
+                {weather.pressure !== null
+                  ? `${weather.pressure.toFixed(1)} hPa`
+                  : "--"}
+              </Text>
+
+              <Text className={`text-xs font-medium ${pressureTrend.color}`}>
+                {pressureTrend.arrow} {pressureTrend.text}
+              </Text>
+            </View>
+          </View>
+
+          <View className="w-full flex-row items-center gap-4 rounded-2xl bg-white p-4">
+            <View className="h-14 w-16">
+              <View className="absolute left-5 top-0">
+                <Sun size={35} color="#FACC15" strokeWidth={2.5} />
+              </View>
+
+              <View className="absolute bottom-0 left-0">
+                <Cloud
+                  size={45}
+                  color="#FFFFFF"
+                  fill="#75BCE5"
+                  strokeWidth={2}
+                />
+              </View>
+            </View>
+
+            <View className="flex-1 gap-1 ">
+              <Text className="text-xs font-bold text-hula-green">
+                OVERALL FIELD CONDITION
+              </Text>
+
+              <Text className="text-xl font-bold text-hula-green">
+                {fieldCondition.condition}
+              </Text>
+
+              <Text className="text-sm text-hula-green">
+                {fieldCondition.description}
+              </Text>
+
+              <Text className="mt-1 text-xs text-hula-green">
+                Light:{" "}
+                {fieldCondition.lightIntensity !== null
+                  ? `${fieldCondition.lightIntensity.toLocaleString()} lux`
+                  : "--"}
+              </Text>
+            </View>
+          </View>
+
+          <View className="w-full gap-3">
+            <Text className="text-lg font-bold text-hula-green">
+              Next Rainfall Forecast
+            </Text>
+
+            <View className="flex-row justify-between gap-2">
+              {forecasts.map((forecast) => (
+                <View
+                  key={forecast.hoursAhead}
+                  className="flex-1 items-center gap-2 rounded-xl bg-white p-3"
+                >
+                  <Text className="text-sm font-bold text-hula-green">
+                    Next {forecast.hoursAhead}h
+                  </Text>
+
+                  <CloudRainWind size={28} color="#18597c" />
+
+                  <Text className="text-xl font-bold text-hula-green">
+                    {forecast.rainProbability}%
+                  </Text>
+
+                  <Text className="text-center text-xs text-gray-500">
+                    Rain chance
+                  </Text>
+
+                  <Text className="text-xs font-medium text-hula-green">
+                    {forecast.expectedRainfall.toFixed(1)} mm
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View className="w-full gap-3">
+            <Text className="text-lg font-bold text-hula-green">
+              Farmer Advisory
+            </Text>
+
+            <View className="flex-row gap-3 rounded-2xl bg-[#EBE3C1] p-4 gap-4">
+              <View className="flex justify-center align-center">
+                <AlertTriangle size={35} color="#73511d" />
+              </View>
+
+              <View className="flex-1 gap-2">
+                <Text className="text-base font-bold text-[#875514]">
+                  {advisory.title}
+                </Text>
+
+                <Text className="text-sm leading-5 text-[#875514]">
+                  {advisory.message}
+                </Text>
+
+                <Text className="text-xs font-medium text-[#B7791F]">
+                  {advisory.level.toUpperCase()} ADVISORY
+                </Text>
+              </View>
             </View>
           </View>
         </View>
