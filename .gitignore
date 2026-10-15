@@ -27,3 +27,4 @@ yarn-debug.log*
 # Local environment and secrets
 .DS_Store
 Thumbs.db
+/Microsoft/

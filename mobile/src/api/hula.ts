@@ -91,17 +91,20 @@ export async function getForecast(): Promise<Forecast> {
 // Readings for one chart range, oldest first.
 export async function getSeries(range: Range): Promise<Reading[]> {
   const raw = await apiGet('/api/readings/series/', { range });
+  if (raw === null) return [];
   return list(Array.isArray(raw) ? raw : obj(raw).points).map(toReading);
 }
 
 // Newest first.
 export async function getHistory(days = 7, limit = 50): Promise<HistoryRow[]> {
   const raw = await apiGet('/api/readings/history/', { days, limit });
+  if (raw === null) return [];
   return list(raw).map((r, i) => ({ id: String(r.id ?? i), ...toReading(r) }));
 }
 
 export async function getAlerts(limit = 20): Promise<AlertItem[]> {
   const raw = await apiGet('/api/alerts/', { limit });
+  if (raw === null) return [];
   return list(raw).map((r, i) => ({
     id: String(r.id ?? i),
     createdAt: typeof r.created_at === 'string' ? r.created_at : '',

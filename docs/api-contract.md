@@ -65,6 +65,26 @@ Past advisories, newest first. Same two response shapes as above.
 { "id": 3, "created_at": "2026-10-11T05:20:00Z", "title": "Rain likely within 3 hours", "detail": "80% chance, about 1.4 mm expected." }
 ```
 
+## Device ingestion (separate from the mobile read API)
+
+### `POST /api/device/ingest/`
+The central node submits one combined reading. Send `Content-Type: application/json` and an `X-Device-Key` header matching the backend's `DEVICE_API_KEY` environment variable. The JSON body must include an ISO 8601 `recorded_at` timestamp. Measurement fields use the same names and units as the reading API; each may be omitted or set to `null` when a sensor did not report. `source` is optional and defaults to `Local sensors`. `is_simulated` is optional and defaults to `false`; the development live simulator sends it as `true`.
+
+```json
+{
+  "recorded_at": "2026-10-11T05:40:00Z",
+  "temperature_c": 28.4,
+  "humidity_pct": 82,
+  "wind_speed_ms": 3.2,
+  "rainfall_mm": 0.0,
+  "pressure_hpa": 1008,
+  "source": "Central node",
+  "is_simulated": false
+}
+```
+
+Successful new readings return `201 Created` with `{ "id": 1, "created": true }`. A duplicate `recorded_at` is ignored and returns `200 OK` with `{ "id": 1, "created": false }`. A missing/incorrect key returns `401`; invalid JSON fields or timestamps return `400` with field-specific errors. This endpoint is for the trusted central node, not the mobile app.
+
 ## Connecting a phone to Django (for later)
 
 1. Run Django so other devices can reach it: `python manage.py runserver 0.0.0.0:8000`.
